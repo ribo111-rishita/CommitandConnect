@@ -6,6 +6,11 @@
 
 > **CommitandConnect** is a JavaScript-powered project focused on fostering developer collaboration, learning, and productivity.
 
+> URLS:
+> frontend: https://commitand-connect.vercel.app/profile
+> backend: https://commitandconnect.onrender.com/
+
+
 ## 📝 About
 
 CommitandConnect is designed with JavaScript as its core language (98.9%), making it highly versatile for building interactive web experiences. The repository may also include assets or configuration files under "Other" (1.1%).  
