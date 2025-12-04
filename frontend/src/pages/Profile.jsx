@@ -9,30 +9,49 @@ export default function Profile() {
   useEffect(() => {
     api.get("/users/me")
       .then(res => {
-        console.log('/users/me response', res.data);
-        const payload = res.data?.user ?? res.data;
-        setUser(payload);
+        setUser(res.data);
       })
       .catch(err => {
         console.error('Failed /users/me', err);
         localStorage.removeItem("token");
         nav("/login");
       });
-  }, []);
+  }, [nav]);
 
-  if (!user) return <div className="wrapper"><div className="card"><p>Loading...</p></div></div>;
+  if (!user) return <div className="card"><h2>Loading...</h2></div>;
 
   return (
-    <div className="wrapper">
-      <div className="card">
-        <h2>Hello, {user.name ?? "—"}</h2>
-        <p><strong>Email:</strong> {user.email ?? "—"}</p>
-        <p><strong>Role:</strong> {user.role ?? "—"}</p>
-        <button onClick={() => { localStorage.removeItem("token"); nav("/login"); }}>
-          Logout
-        </button>
+    <div className="profile-layout">
+
+
+      <div className="welcome-section">
+        <h1 className="welcome-title">Welcome, {user.name}</h1>
+        <p className="welcome-sub">Role: {user.role}</p>
+
       </div>
+
+
+      <div className="dashboard-main">
+        <h2>Main Dashboard</h2>
+        <p>Here you can show stats, progress, features, etc.</p>
+      </div>
+
+
+      <div className="mentor-section">
+        <h2>Selected Mentors</h2>
+
+        <div className="mentor-grid">
+          {["John Doe", "Aarav Sharma", "Sophia Verma", "Neha Patel", "Rohan Singh"].map((mentor, idx) => (
+            <div key={idx} className="mentor-card">
+              <h3>{mentor}</h3>
+              <p>Expert in: Web Dev / Design / AI</p>
+              <button className="choose-btn">Connect</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
-
+ 

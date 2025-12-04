@@ -1,26 +1,40 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-
-const authRoutes = require('./routes/auth');    
-const userRoutes = require('./routes/users');    
+// backend/server.js
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const chatRoutes = require('./routes/chat');
+dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// FIXED CORS — ALLOW YOUR FRONTEND PORT
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+
 app.use(express.json());
+app.use('/api/chat', chatRoutes);
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => {
-    console.error('MongoDB connection error:', err.message);
-    process.exit(1);
-  });
+// ROUTES
+const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/users");
+const mentorRoutes = require("./routes/mentors");
+const matchesRoutes = require("./routes/matches");
+const chatRouter = require("./routes/chat");
 
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/mentors", mentorRoutes);
+app.use("/api/matches", matchesRoutes);
+app.use("/api/chat", chatRouter);
 
-app.get('/', (req, res) => res.send('Commit&Connect Backend'));
-
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log('Server started on port', PORT));
+// CONNECT & START SERVER
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("Mongo connected");
+    app.listen(8000, () => console.log("Server running on port 8000"));
+  })
+  .catch((err) => console.error(err));

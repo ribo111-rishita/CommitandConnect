@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
+import OAuthButtons from "../components/OAuthButtons";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,41 +10,39 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError("");
     try {
       const res = await api.post("/auth/login", form);
       console.log("LOGIN RESPONSE data:", res.data);
-      const token =
-        res.data?.token ||
-        res.data?.accessToken ||
-        res.data?.data?.token ||
-        (typeof res.data === "string" ? res.data : null);
-
+      const token = res.data?.token || null;
       if (token) {
         localStorage.setItem("token", token);
         navigate("/profile");
         return;
       }
-
-      // If backend returns { user: {...} } without token, show message
-      setError("Login succeeded but token missing; check server response (see console).");
+      setError("Login succeeded but token missing; check server response");
     } catch (err) {
-      const msg = err.response?.data?.msg || err.response?.data?.message || "Invalid email or password";
-      setError(msg);
-      console.error("Login request failed:", err);
+      console.error("Login error", err.response?.data || err.message);
+      setError(err.response?.data?.msg || "Server error");
     }
   };
 
   return (
-    <div className="wrapper">
+    <div style={{ width: "100%" }}>
       <div className="card">
         <h2>Login</h2>
         <form onSubmit={handleLogin}>
-          <input placeholder="Email" type="email" required onChange={(e)=>setForm({...form,email:e.target.value})} />
-          <input placeholder="Password" type="password" required onChange={(e)=>setForm({...form,password:e.target.value})} />
+          <input placeholder="Email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input placeholder="Password" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <button type="submit">Login</button>
         </form>
+
         {error && <p className="error">{error}</p>}
-        <p style={{textAlign:"center", marginTop:12}}>Don't have an account? <a href="/signup">Sign up</a></p>
+        <p className="small-link"><a href="/signup">Sign up</a></p>
+
+        <div style={{ marginTop: 18 }}>
+          <OAuthButtons demo={false} />
+        </div>
       </div>
     </div>
   );
