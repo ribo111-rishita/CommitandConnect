@@ -7,7 +7,7 @@
 > **CommitandConnect** is a JavaScript-powered project focused on fostering developer collaboration, learning, and productivity.
 
 > URLS:
-> frontend: https://commitand-connect.vercel.app/profile
+> frontend: [https://commitand-connect.vercel.app/profile](https://commitand-connect-autn.vercel.app/signup)
 > backend: https://commitandconnect.onrender.com/
 
 
