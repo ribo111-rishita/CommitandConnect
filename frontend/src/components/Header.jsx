@@ -12,30 +12,30 @@ export default function Header() {
   };
 
   return (
-    <header className="site-header" role="banner">
+    <header className="site-header">
       <div className="header-inner">
-
-        {/* LEFT SIDE */}
-        <div className="header-left">
-          <Link to={token ? "/dashboard" : "/"} className="logo">Commit&amp;Connect</Link>
+        <div className="flex-1">
+          <Link to={token ? "/dashboard" : "/"} className="logo">
+            Commit&Connect
+          </Link>
         </div>
 
-        {/* RIGHT SIDE */}
-        <div className="header-right">
+        <nav className="flex gap-4 items-center">
           {!token ? (
             <>
-              <Link to="/signup" className="nav-btn nav-btn--outline">Signup</Link>
-              <Link to="/login" className="nav-btn nav-btn--outline">Login</Link>
+              <Link to="/login" className="btn btn-ghost btn-sm">Login</Link>
+              <Link to="/signup" className="btn btn-primary btn-sm">Sign Up</Link>
             </>
           ) : (
             <>
               <Link to="/dashboard" className="nav-link">Dashboard</Link>
-              <Link to="/profile" className="nav-link">Profile</Link>
-              <button onClick={handleLogout} className="nav-btn nav-btn--outline" style={{cursor:'pointer'}}>Logout</button>
+              <Link to="/edit-profile" className="nav-link">Profile</Link>
+              <button onClick={handleLogout} className="btn btn-ghost btn-sm">
+                Logout
+              </button>
             </>
           )}
-        </div>
-
+        </nav>
       </div>
     </header>
   );

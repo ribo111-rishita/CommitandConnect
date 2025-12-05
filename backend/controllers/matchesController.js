@@ -1,9 +1,8 @@
 // backend/controllers/matchesController.js
-const Match = require('../models/Match');      // ensure you have a Match model
-const Mentor = require('../models/Mentor');    // optional, for populating mentor info
-const User = require('../models/User');        // optional, for populating user info
+const Match = require('../models/Match');
+const Mentor = require('../models/Mentor');
 
-// Create a match request (mentee sends to mentor)
+// CREATE 2: Create a match request
 exports.createMatch = async (req, res) => {
   try {
     const userId = req.user && (req.user._id || req.user.id);
@@ -12,113 +11,110 @@ exports.createMatch = async (req, res) => {
     const { mentorId, note } = req.body;
     if (!mentorId) return res.status(400).json({ error: 'mentorId required' });
 
+    // Prevent duplicate active requests
+    const existing = await Match.findOne({ mentor: mentorId, mentee: userId, status: 'pending' });
+    if (existing) return res.status(400).json({ error: 'Pending request already exists' });
+
     const match = await Match.create({ mentor: mentorId, mentee: userId, note: note || '' });
-    return res.json(match);
+    return res.status(201).json(match);
   } catch (err) {
     console.error('createMatch error', err);
     return res.status(500).json({ error: 'Create match failed' });
   }
 };
 
-// Get incoming requests for the logged-in mentor
-exports.getRequestsForMentor = async (req, res) => {
+// READ 2: Get all matches for the logged-in user (as mentor or mentee)
+exports.getMatches = async (req, res) => {
   try {
     const userId = req.user && (req.user._id || req.user.id);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    // find mentor profile linked to user (if applicable)
+    // Check if user is a mentor
     const mentorProfile = await Mentor.findOne({ user: userId }).lean();
     const mentorId = mentorProfile ? mentorProfile._id : null;
 
-    const filter = mentorId ? { mentor: mentorId } : { mentor: userId };
-    const requests = await Match.find(filter)
+    // Find matches where user is mentee OR mentor
+    const filter = {
+      $or: [
+        { mentee: userId },
+        { mentor: mentorId }
+      ]
+    };
+
+    // If mentorId is null, the second condition { mentor: null } might match nothing or garbage, 
+    // but effectively it just finds where mentee is userId.
+    // To be cleaner:
+    const query = mentorId
+      ? { $or: [{ mentee: userId }, { mentor: mentorId }] }
+      : { mentee: userId };
+
+    const matches = await Match.find(query)
       .sort({ createdAt: -1 })
       .populate('mentee', 'name email')
       .populate('mentor', 'name avatarUrl')
       .lean();
 
-    return res.json(requests);
+    return res.json(matches);
   } catch (err) {
-    console.error('getRequestsForMentor error', err);
-    return res.status(500).json({ error: 'Failed to fetch requests' });
+    console.error('getMatches error', err);
+    return res.status(500).json({ error: 'Failed to fetch matches' });
   }
 };
 
-// Get requests for the logged-in mentee (their own requests)
-exports.getRequestsForMentee = async (req, res) => {
+// UPDATE 2: Update match status (accept/reject)
+exports.updateMatchStatus = async (req, res) => {
   try {
+    const { id } = req.params;
+    const { status } = req.body; // 'accepted' or 'rejected'
     const userId = req.user && (req.user._id || req.user.id);
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const requests = await Match.find({ mentee: userId })
-      .sort({ createdAt: -1 })
-      .populate('mentor', 'name avatarUrl')
-      .lean();
+    if (!['accepted', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
 
-    return res.json(requests);
-  } catch (err) {
-    console.error('getRequestsForMentee error', err);
-    return res.status(500).json({ error: 'Failed to fetch your requests' });
-  }
-};
-
-// Accept a match (mentor accepts)
-exports.acceptMatch = async (req, res) => {
-  try {
-    const id = req.params.id;
-    const userId = req.user && (req.user._id || req.user.id);
     const match = await Match.findById(id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
-    // ensure only mentor can accept
+    // Only the mentor can accept/reject
     const mentorProfile = await Mentor.findOne({ user: userId }).lean();
-    const mentorId = mentorProfile ? String(mentorProfile._id) : String(userId);
-    if (String(match.mentor) !== String(mentorId)) return res.status(403).json({ error: 'Forbidden' });
+    const mentorId = mentorProfile ? String(mentorProfile._id) : null;
 
-    match.status = 'accepted';
+    if (String(match.mentor) !== mentorId) {
+      return res.status(403).json({ error: 'Forbidden: Only the mentor can update status' });
+    }
+
+    match.status = status;
     await match.save();
     return res.json(match);
   } catch (err) {
-    console.error('acceptMatch error', err);
-    return res.status(500).json({ error: 'Accept failed' });
+    console.error('updateMatchStatus error', err);
+    return res.status(500).json({ error: 'Update failed' });
   }
 };
 
-// Reject a match (mentor rejects)
-exports.rejectMatch = async (req, res) => {
-  try {
-    const id = req.params.id;
-    const userId = req.user && (req.user._id || req.user.id);
-    const match = await Match.findById(id);
-    if (!match) return res.status(404).json({ error: 'Match not found' });
-
-    const mentorProfile = await Mentor.findOne({ user: userId }).lean();
-    const mentorId = mentorProfile ? String(mentorProfile._id) : String(userId);
-    if (String(match.mentor) !== String(mentorId)) return res.status(403).json({ error: 'Forbidden' });
-
-    match.status = 'rejected';
-    await match.save();
-    return res.json(match);
-  } catch (err) {
-    console.error('rejectMatch error', err);
-    return res.status(500).json({ error: 'Reject failed' });
-  }
-};
-
-// Delete/cancel a match (owner or mentee)
+// DELETE 2: Delete/Cancel a match
 exports.deleteMatch = async (req, res) => {
   try {
-    const id = req.params.id;
+    const { id } = req.params;
     const userId = req.user && (req.user._id || req.user.id);
+
     const match = await Match.findById(id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
-    // owner check: mentee who created or mentor owner can delete
-    const isOwner = String(match.mentee) === String(userId) || String(match.mentor) === String(userId);
-    if (!isOwner) return res.status(403).json({ error: 'Forbidden' });
+    // Owner check: Mentee can cancel, Mentor can delete
+    // We need to check if the user is the mentee OR the mentor
+    const mentorProfile = await Mentor.findOne({ user: userId }).lean();
+    const mentorId = mentorProfile ? String(mentorProfile._id) : null;
+
+    const isMentee = String(match.mentee) === String(userId);
+    const isMentor = String(match.mentor) === mentorId;
+
+    if (!isMentee && !isMentor) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     await Match.deleteOne({ _id: id });
-    return res.json({ success: true });
+    return res.json({ success: true, message: 'Match deleted' });
   } catch (err) {
     console.error('deleteMatch error', err);
     return res.status(500).json({ error: 'Delete failed' });

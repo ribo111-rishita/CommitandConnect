@@ -6,17 +6,23 @@ const multer = require('multer');
 
 const router = express.Router();
 
-// multer memory storage (we upload the buffer to Cloudinary)
+// multer memory storage
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-router.get('/profiles', mentorsController.getAllProfiles);           // public list with filters
-router.get('/profile/:id', mentorsController.getProfileByUserId);    // public single profile
-router.get('/me', auth, async (req, res) => res.json(req.user));     // current user
+// READ 1 (Private): Get own profile
+router.get('/me', auth, mentorsController.getMyProfile);
 
-// create / update own profile -- accepts multipart/form-data with optional 'avatar' file
-router.post('/profile', auth, upload.single('avatar'), mentorsController.createOrUpdateProfile);
+// READ 1: Get all profiles
+router.get('/', mentorsController.getAllProfiles);
 
-router.delete('/profile/:id', auth, mentorsController.deleteProfile);  // delete (owner only)
+// CREATE 1: Create profile
+router.post('/', auth, upload.single('avatar'), mentorsController.createProfile);
+
+// UPDATE 1: Update profile
+router.put('/me', auth, upload.single('avatar'), mentorsController.updateProfile);
+
+// DELETE 1: Delete profile
+router.delete('/me', auth, mentorsController.deleteProfile);
 
 module.exports = router;

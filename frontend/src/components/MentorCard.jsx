@@ -1,51 +1,65 @@
 import React, { useState } from "react";
-import ChatModal from "./ChatModal";
+import { createMatch } from "../api";
 
 export default function MentorCard({ mentor }) {
-  const [open, setOpen] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
+  const [note, setNote] = useState("");
+
+  const handleRequest = async () => {
+    try {
+      await createMatch({ mentorId: mentor._id, note });
+      alert("Request sent!");
+      setShowRequest(false);
+      setNote("");
+    } catch (err) {
+      alert("Failed to send request: " + (err.response?.data?.error || err.message));
+    }
+  };
 
   return (
-    <>
-      <div
-        style={{
-          padding: 16,
-          background: "#fff",
-          borderRadius: 10,
-          border: "1px solid #eee",
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          width: "250px",
-        }}
-      >
+    <div className="card flex flex-col gap-2">
+      <div style={{ height: 180, overflow: 'hidden', borderRadius: 'var(--radius-sm)', background: '#eee' }}>
         <img
-          src={mentor.photoUrl || "https://placehold.co/300x200"}
-          style={{ width: "100%", borderRadius: 10 }}
-          alt=""
+          src={mentor.avatarUrl || "https://placehold.co/400x300?text=No+Avatar"}
+          alt={mentor.name}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
+      </div>
 
-        <h3 style={{ margin: 0 }}>{mentor.name}</h3>
-        <p style={{ margin: 0, fontSize: 14, color: "#666" }}>
-          {mentor.expertise || "General mentor"}
+      <div className="mt-4">
+        <h3>{mentor.name}</h3>
+        <p className="text-sm text-primary font-bold" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+          {mentor.expertise || "Mentor"}
         </p>
+        <p className="text-sm text-secondary line-clamp-2" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {mentor.bio || "No bio available."}
+        </p>
+      </div>
 
+      <div className="flex justify-between items-center mt-4">
+        <span className="text-sm text-muted">{mentor.availability || "Flexible"}</span>
         <button
-          onClick={() => setOpen(true)}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            background: "#2563eb",
-            color: "#fff",
-            border: "none",
-            cursor: "pointer",
-            marginTop: 10,
-          }}
+          className="btn btn-primary btn-sm"
+          onClick={() => setShowRequest(!showRequest)}
         >
-          Chat
+          {showRequest ? "Cancel" : "Connect"}
         </button>
       </div>
 
-      <ChatModal open={open} onClose={() => setOpen(false)} mentor={mentor} />
-    </>
+      {showRequest && (
+        <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-100" style={{ background: '#f8fafc', padding: 12, borderRadius: 8 }}>
+          <textarea
+            placeholder="Add a note..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            className="mb-2"
+          />
+          <button className="btn btn-primary btn-sm w-full" onClick={handleRequest}>
+            Send Request
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
