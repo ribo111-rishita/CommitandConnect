@@ -29,11 +29,27 @@ app.use("/api/mentors", mentorRoutes);
 app.use("/api/matches", matchesRoutes);
 app.use("/api/chat", chatRoutes);
 
+
 // Connect & Start Server
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("Mongo connected");
-    app.listen(8000, () => console.log("Server running on port 8000"));
-  })
-  .catch((err) => console.error(err));
+
+async function connectDb(){
+  try {
+     const connectionInstance =  await mongoose.connect(`${process.env.MONGO_URI}/commitconnect`);
+     console.log(`MongoDB connected to ${connectionInstance.connection.host}`);
+  } catch (error) {
+      console.log('MongoDB connection failed, FILE: db/index.js',error);
+      process.exit(1);
+  }
+}
+
+connectDb()
+.then(()=>{
+    app.listen(process.env.PORT || 8000,'0.0.0.0',()=>{
+        console.log('Express App Started Successfully and Running!')
+        console.log(`Server Started at http://localhost:${process.env.PORT || 8000}`)
+    })
+    
+})
+.catch(err => console.log('DataBase connection failed'+err) )
+
+
