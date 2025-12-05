@@ -1,12 +1,12 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
-import Profile from "./pages/Profile";
 import OAuthCallback from "./pages/OAuthCallback";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Header from "./components/Header";
 import Dashboard from "./pages/Dashboard";
+import EditProfile from "./pages/EditProfile";
 import MentorProfile from "./pages/MentorProfile";
 
 export default function App() {
@@ -26,24 +26,25 @@ export default function App() {
             path="/"
             element={
               <ProtectedRoute>
+                <Navigate to="/dashboard" replace />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
             }
           />
-          <Route
-  path="/dashboard"
-  element={
-    <ProtectedRoute>
-      <Dashboard />
-    </ProtectedRoute>
-  }
-/>
 
           <Route
-            path="/profile"
+            path="/edit-profile"
             element={
               <ProtectedRoute>
-                <Profile />
+                <EditProfile />
               </ProtectedRoute>
             }
           />
@@ -57,8 +58,8 @@ export default function App() {
             }
           />
 
-          {/* ❌ REMOVED CHAT ROUTE (popup chat only, no page) */}
-          {/* <Route path="/chat/:userId" ... /> */}
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
         </Routes>
       </div>

@@ -1,47 +1,71 @@
 import React, { useState } from "react";
 import api from "../api";
-import { useNavigate } from "react-router-dom";
-import OAuthButtons from "../components/OAuthButtons";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
     try {
       const res = await api.post("/auth/login", form);
-      console.log("LOGIN RESPONSE data:", res.data);
-      const token = res.data?.token || null;
+      const token = res.data?.token;
       if (token) {
         localStorage.setItem("token", token);
-        navigate("/profile");
-        return;
+        navigate("/dashboard");
+      } else {
+        setError("Login succeeded but no token received.");
       }
-      setError("Login succeeded but token missing; check server response");
     } catch (err) {
-      console.error("Login error", err.response?.data || err.message);
-      setError(err.response?.data?.msg || "Server error");
+      console.error("Login error", err);
+      setError(err.response?.data?.error || "Invalid email or password");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ width: "100%" }}>
-      <div className="card">
-        <h2>Login</h2>
+    <div className="container flex items-center justify-center" style={{ minHeight: '80vh' }}>
+      <div className="card" style={{ width: '100%', maxWidth: 400 }}>
+        <h2 className="mb-4 text-center">Welcome Back</h2>
+
         <form onSubmit={handleLogin}>
-          <input placeholder="Email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <input placeholder="Password" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          <button type="submit">Login</button>
+          <div>
+            <label>Email</label>
+            <input
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="you@college.edu"
+            />
+          </div>
+
+          <div>
+            <label>Password</label>
+            <input
+              type="password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="••••••••"
+            />
+          </div>
+
+          {error && <div className="mb-4 p-3 bg-red-50 text-error rounded text-sm" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>{error}</div>}
+
+          <button type="submit" className="btn btn-primary w-full" disabled={loading}>
+            {loading ? "Logging in..." : "Login"}
+          </button>
         </form>
 
-        {error && <p className="error">{error}</p>}
-        <p className="small-link"><a href="/signup">Sign up</a></p>
-
-        <div style={{ marginTop: 18 }}>
-          <OAuthButtons demo={false} />
+        <div className="mt-4 text-center text-sm">
+          Don't have an account? <Link to="/signup" style={{ color: 'var(--primary)', fontWeight: 600 }}>Sign up</Link>
         </div>
       </div>
     </div>

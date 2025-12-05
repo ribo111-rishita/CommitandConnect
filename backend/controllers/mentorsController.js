@@ -1,5 +1,5 @@
 // backend/controllers/mentorsController.js
-const Mentor = require('../models/Mentor'); // adjust path if needed
+const Mentor = require('../models/Mentor');
 const { v2: cloudinary } = require('cloudinary');
 const DatauriParser = require('datauri/parser');
 
@@ -10,7 +10,7 @@ cloudinary.config({
 });
 
 /**
- * Helper: upload buffer (from multer) to cloudinary, returns secure_url or empty string
+ * Helper: upload buffer (from multer) to cloudinary
  */
 async function uploadBufferToCloudinary(file) {
   if (!file || !file.buffer) return '';
@@ -21,10 +21,23 @@ async function uploadBufferToCloudinary(file) {
   return res.secure_url;
 }
 
-/**
- * GET /profiles
- * Query params: page, limit, q (search by name/expertise), expertise, year, availability
- */
+// READ 1 (Private): Get own profile
+exports.getMyProfile = async (req, res) => {
+  try {
+    const userId = req.user && (req.user._id || req.user.id);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const mentor = await Mentor.findOne({ user: userId });
+    if (!mentor) return res.status(404).json({ error: 'Profile not found' });
+
+    res.json(mentor);
+  } catch (err) {
+    console.error('getMyProfile error', err);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+};
+
+// READ 1: Get all profiles (with filtering)
 exports.getAllProfiles = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page || '1', 10));
@@ -37,7 +50,6 @@ exports.getAllProfiles = async (req, res) => {
 
     const filter = {};
     if (q) {
-      // text-like search over name/expertise/bio
       filter.$or = [
         { name: new RegExp(q, 'i') },
         { expertise: new RegExp(q, 'i') },
@@ -64,100 +76,93 @@ exports.getAllProfiles = async (req, res) => {
   }
 };
 
-/**
- * GET /profile/:id
- * id is the user id (or mentor id depending on your design). Here we try both.
- */
-exports.getProfileByUserId = async (req, res) => {
-  try {
-    const id = req.params.id;
-    // try find by _id first, else by user field
-    let mentor = await Mentor.findById(id).lean();
-    if (!mentor) {
-      mentor = await Mentor.findOne({ user: id }).lean();
-    }
-    if (!mentor) return res.status(404).json({ error: 'Mentor not found' });
-    res.json(mentor);
-  } catch (err) {
-    console.error('getProfileByUserId error', err);
-    res.status(500).json({ error: 'Failed to fetch profile' });
-  }
-};
-
-/**
- * POST /profile
- * auth required. Creates or updates profile for req.user._id
- * Accepts multipart/form-data with optional file field 'avatar'
- */
-exports.createOrUpdateProfile = async (req, res) => {
+// CREATE 1: Create a new mentor profile
+exports.createProfile = async (req, res) => {
   try {
     const userId = req.user && (req.user._id || req.user.id);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
+    // Check if profile already exists
+    const existing = await Mentor.findOne({ user: userId });
+    if (existing) {
+      return res.status(400).json({ error: 'Profile already exists. Use PUT to update.' });
+    }
+
     const { name, expertise, bio, persona, availability } = req.body;
 
-    // If file present, upload to cloudinary
-    let avatarUrl = undefined;
+    let avatarUrl = '';
     if (req.file) {
       try {
         avatarUrl = await uploadBufferToCloudinary(req.file);
       } catch (uploadErr) {
         console.error('avatar upload failed', uploadErr);
-        // don't fail whole request; log and continue without avatar
       }
     }
 
-    // find existing
-    let mentor = await Mentor.findOne({ user: userId });
-    if (mentor) {
-      // update permitted fields
-      mentor.name = name ?? mentor.name;
-      mentor.expertise = expertise ?? mentor.expertise;
-      mentor.bio = bio ?? mentor.bio;
-      mentor.persona = persona ?? mentor.persona;
-      mentor.availability = availability ?? mentor.availability;
-      if (avatarUrl) mentor.avatarUrl = avatarUrl;
-      await mentor.save();
-    } else {
-      // create new profile
-      mentor = await Mentor.create({
-        user: userId,
-        name: name || req.user.name || 'Unnamed Mentor',
-        expertise: expertise || '',
-        bio: bio || '',
-        persona: persona || '',
-        availability: availability || '',
-        avatarUrl: avatarUrl || ''
-      });
-    }
+    const mentor = await Mentor.create({
+      user: userId,
+      name: name || req.user.name || 'Unnamed Mentor',
+      expertise: expertise || '',
+      bio: bio || '',
+      persona: persona || '',
+      availability: availability || '',
+      avatarUrl: avatarUrl
+    });
 
-    res.json(mentor);
+    res.status(201).json(mentor);
   } catch (err) {
-    console.error('createOrUpdateProfile error', err);
-    res.status(500).json({ error: 'Failed to create or update profile' });
+    console.error('createProfile error', err);
+    res.status(500).json({ error: 'Failed to create profile' });
   }
 };
 
-/**
- * DELETE /profile/:id
- * auth required. Only owner (or admin — modify logic to add admin role) can delete.
- */
-exports.deleteProfile = async (req, res) => {
+// UPDATE 1: Update existing mentor profile
+exports.updateProfile = async (req, res) => {
   try {
-    const id = req.params.id;
     const userId = req.user && (req.user._id || req.user.id);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const mentor = await Mentor.findById(id);
-    if (!mentor) return res.status(404).json({ error: 'Mentor not found' });
-
-    // allow deletion only by owner
-    if (String(mentor.user) !== String(userId)) {
-      return res.status(403).json({ error: 'Forbidden' });
+    let mentor = await Mentor.findOne({ user: userId });
+    if (!mentor) {
+      return res.status(404).json({ error: 'Profile not found. Use POST to create.' });
     }
 
-    await Mentor.deleteOne({ _id: id });
-    res.json({ success: true });
+    const { name, expertise, bio, persona, availability } = req.body;
+
+    if (req.file) {
+      try {
+        const url = await uploadBufferToCloudinary(req.file);
+        if (url) mentor.avatarUrl = url;
+      } catch (uploadErr) {
+        console.error('avatar upload failed', uploadErr);
+      }
+    }
+
+    if (name !== undefined) mentor.name = name;
+    if (expertise !== undefined) mentor.expertise = expertise;
+    if (bio !== undefined) mentor.bio = bio;
+    if (persona !== undefined) mentor.persona = persona;
+    if (availability !== undefined) mentor.availability = availability;
+
+    await mentor.save();
+    res.json(mentor);
+  } catch (err) {
+    console.error('updateProfile error', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+};
+
+// DELETE 1: Delete mentor profile
+exports.deleteProfile = async (req, res) => {
+  try {
+    const userId = req.user && (req.user._id || req.user.id);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const mentor = await Mentor.findOne({ user: userId });
+    if (!mentor) return res.status(404).json({ error: 'Mentor profile not found' });
+
+    await Mentor.deleteOne({ _id: mentor._id });
+    res.json({ success: true, message: 'Profile deleted' });
   } catch (err) {
     console.error('deleteProfile error', err);
     res.status(500).json({ error: 'Failed to delete profile' });

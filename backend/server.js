@@ -3,34 +3,33 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
-const chatRoutes = require('./routes/chat');
+
 dotenv.config();
 
-const app = express();
-
-// FIXED CORS — ALLOW YOUR FRONTEND PORT
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
-
-app.use(express.json());
-app.use('/api/chat', chatRoutes);
-
-// ROUTES
+// Routes
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const mentorRoutes = require("./routes/mentors");
 const matchesRoutes = require("./routes/matches");
-const chatRouter = require("./routes/chat");
+const chatRoutes = require("./routes/chat");
 
+const app = express();
+
+// Middleware
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+app.use(express.json());
+
+// Mount Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/mentors", mentorRoutes);
 app.use("/api/matches", matchesRoutes);
-app.use("/api/chat", chatRouter);
+app.use("/api/chat", chatRoutes);
 
-// CONNECT & START SERVER
+// Connect & Start Server
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
